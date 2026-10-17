@@ -43,6 +43,8 @@ plugins {
   - [fat-jar-and-classloader.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/fat-jar-and-classloader.md) for a beginner-to-advanced explanation of `.class` files, standard JVM limitations, and how Spring Boot's custom ClassLoader solves the Fat JAR problem.
   - [spring-boot-gradle-plugin.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/spring-boot-gradle-plugin.md) for full details on Gradle tasks, `JarLauncher`, and Docker layer caching.
   - [gradle-build-directory.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/gradle-build-directory.md) for a detailed breakdown of all folders generated inside `build/`.
+  - [docker/README.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/docker/README.md) for multi-stage Docker builds, `dumb-init`, non-root security, and Docker Compose orchestration.
+  - [gradle-daemon.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/gradle-daemon.md) for understanding the Gradle Daemon and why `--no-daemon` is mandatory in Docker and CI/CD.
 
 ### 1.4 `id("io.spring.dependency-management") version "1.1.7"`
 * **What it is:** Spring's dependency management plugin.
