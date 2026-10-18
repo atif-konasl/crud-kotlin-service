@@ -1,5 +1,5 @@
 What I want to do:
-- implement POST and GET apis in spring boot and kotlin
+- implement POST, GET, PATCH, DELETE apis in spring boot and kotlin
 - calls an external client with auth and will use web client library + do some operations on return data
 - store in postgresql
 

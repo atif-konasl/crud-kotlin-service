@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: crud-kotlin-service
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/crud_db}
+    username: ${SPRING_DATASOURCE_USERNAME:app_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:app_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      connection-timeout: 20000
+      pool-name: ResourceHikariCP
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations:
+      - classpath:db/migration
+      - classpath:data.migration
+      - classpath:db.migration
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8080/oauth2/jwks}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+external:
+  client:
+    base-url: ${EXTERNAL_CLIENT_BASE_URL:http://localhost:8081}
+    auth-token: ${EXTERNAL_CLIENT_AUTH_TOKEN:test-bearer-token-12345}
+    connect-timeout-ms: ${EXTERNAL_CLIENT_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${EXTERNAL_CLIENT_READ_TIMEOUT_MS:5000}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method

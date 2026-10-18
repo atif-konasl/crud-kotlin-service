@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/api/v1/enrichment/.*"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "referenceId": "external-sample-ref",
+      "category": "finance",
+      "riskScore": 75,
+      "verified": true,
+      "tags": ["partner", "fast-track"]
+    }
+  }
+}
