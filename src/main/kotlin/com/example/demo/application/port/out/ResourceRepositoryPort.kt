@@ -5,8 +5,11 @@ import com.example.demo.domain.model.ResourceId
 
 interface ResourceRepositoryPort {
     fun save(resource: Resource): Resource
+
     fun findById(id: ResourceId): Resource?
+
     fun findAll(): List<Resource>
+
     fun deleteById(id: ResourceId): Boolean
 }
 

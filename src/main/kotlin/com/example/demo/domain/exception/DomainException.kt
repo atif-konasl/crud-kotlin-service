@@ -6,5 +6,5 @@ package com.example.demo.domain.exception
  */
 abstract class DomainException(
     override val message: String,
-    override val cause: Throwable? = null
+    override val cause: Throwable? = null,
 ) : RuntimeException(message, cause)

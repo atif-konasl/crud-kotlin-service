@@ -11,25 +11,25 @@ import java.time.Duration
 
 @Component
 class ExternalWebClientAdapter(
-    private val externalApiWebClient: WebClient
+    private val externalApiWebClient: WebClient,
 ) : ExternalClientPort {
-
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun fetchEnrichmentData(referenceId: String): String {
         logger.info("Calling external API to fetch enrichment data for referenceId='{}'", referenceId)
 
         return try {
-            val response = externalApiWebClient.get()
-                .uri("/api/v1/enrichment/{referenceId}", referenceId)
-                .retrieve()
-                .onStatus(HttpStatusCode::isError) { clientResponse ->
-                    logger.error("External API returned error status: {}", clientResponse.statusCode())
-                    clientResponse.createException()
-                }
-                .bodyToMono(ExternalApiResponse::class.java)
-                .timeout(Duration.ofSeconds(5))
-                .block()
+            val response =
+                externalApiWebClient
+                    .get()
+                    .uri("/api/v1/enrichment/{referenceId}", referenceId)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError) { clientResponse ->
+                        logger.error("External API returned error status: {}", clientResponse.statusCode())
+                        clientResponse.createException()
+                    }.bodyToMono(ExternalApiResponse::class.java)
+                    .timeout(Duration.ofSeconds(5))
+                    .block()
 
             processEnrichmentResponse(response, referenceId)
         } catch (ex: WebClientResponseException) {
@@ -44,16 +44,20 @@ class ExternalWebClientAdapter(
     /**
      * Performs business operations and normalization on the returned third-party data.
      */
-    private fun processEnrichmentResponse(response: ExternalApiResponse?, referenceId: String): String {
+    private fun processEnrichmentResponse(
+        response: ExternalApiResponse?,
+        referenceId: String,
+    ): String {
         if (response == null) {
             return "source=external-api;referenceId=$referenceId;status=EMPTY"
         }
 
-        val riskLevel = when {
-            (response.riskScore ?: 0) >= 80 -> "HIGH"
-            (response.riskScore ?: 0) >= 40 -> "MEDIUM"
-            else -> "LOW"
-        }
+        val riskLevel =
+            when {
+                (response.riskScore ?: 0) >= 80 -> "HIGH"
+                (response.riskScore ?: 0) >= 40 -> "MEDIUM"
+                else -> "LOW"
+            }
 
         val normalizedCategory = response.category?.uppercase() ?: "GENERAL"
         val isVerified = response.verified ?: false

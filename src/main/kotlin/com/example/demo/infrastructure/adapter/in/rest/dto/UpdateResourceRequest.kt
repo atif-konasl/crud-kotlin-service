@@ -6,11 +6,12 @@ import java.util.UUID
 
 data class UpdateResourceRequest(
     val name: String? = null,
-    val description: String? = null
+    val description: String? = null,
 ) {
-    fun toCommand(id: UUID): UpdateResourceCommand = UpdateResourceCommand(
-        id = ResourceId(id),
-        name = name,
-        description = description
-    )
+    fun toCommand(id: UUID): UpdateResourceCommand =
+        UpdateResourceCommand(
+            id = ResourceId(id),
+            name = name,
+            description = description,
+        )
 }

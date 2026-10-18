@@ -18,7 +18,6 @@ import java.util.UUID
 
 @RestController
 private class ExceptionTestController {
-
     @GetMapping("/test/not-found")
     fun notFound(): Nothing = throw ResourceNotFoundException(UUID.fromString("00000000-0000-0000-0000-000000000001"))
 
@@ -39,20 +38,21 @@ private class ExceptionTestController {
 }
 
 class GlobalExceptionHandlerTest {
-
     private lateinit var mockMvc: MockMvc
 
     @BeforeEach
     fun setUp() {
-        mockMvc = MockMvcBuilders
-            .standaloneSetup(ExceptionTestController())
-            .setControllerAdvice(GlobalExceptionHandler())
-            .build()
+        mockMvc =
+            MockMvcBuilders
+                .standaloneSetup(ExceptionTestController())
+                .setControllerAdvice(GlobalExceptionHandler())
+                .build()
     }
 
     @Test
     fun `should map ResourceNotFoundException to 404 NOT_FOUND`() {
-        mockMvc.perform(get("/test/not-found").accept(MediaType.APPLICATION_PROBLEM_JSON))
+        mockMvc
+            .perform(get("/test/not-found").accept(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.status").value(404))
             .andExpect(jsonPath("$.title").value("Not Found"))
@@ -62,7 +62,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     fun `should map InvalidResourceStateException to 409 CONFLICT`() {
-        mockMvc.perform(get("/test/conflict").accept(MediaType.APPLICATION_PROBLEM_JSON))
+        mockMvc
+            .perform(get("/test/conflict").accept(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.status").value(409))
             .andExpect(jsonPath("$.title").value("Conflict"))
@@ -71,7 +72,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     fun `should map BusinessRuleValidationException to 422 UNPROCESSABLE_ENTITY`() {
-        mockMvc.perform(get("/test/validation").accept(MediaType.APPLICATION_PROBLEM_JSON))
+        mockMvc
+            .perform(get("/test/validation").accept(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(status().isUnprocessableEntity)
             .andExpect(jsonPath("$.status").value(422))
             .andExpect(jsonPath("$.title").value("Unprocessable Entity"))
@@ -80,7 +82,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     fun `should map IllegalArgumentException to 400 BAD_REQUEST`() {
-        mockMvc.perform(get("/test/illegal-argument").accept(MediaType.APPLICATION_PROBLEM_JSON))
+        mockMvc
+            .perform(get("/test/illegal-argument").accept(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.title").value("Bad Request"))
@@ -89,7 +92,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     fun `should map unhandled DomainException to 400 BAD_REQUEST`() {
-        mockMvc.perform(get("/test/generic-domain").accept(MediaType.APPLICATION_PROBLEM_JSON))
+        mockMvc
+            .perform(get("/test/generic-domain").accept(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Custom domain error"))
@@ -97,7 +101,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     fun `should map unexpected Exception to 500 INTERNAL_SERVER_ERROR with sanitized message`() {
-        mockMvc.perform(get("/test/unhandled").accept(MediaType.APPLICATION_PROBLEM_JSON))
+        mockMvc
+            .perform(get("/test/unhandled").accept(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(status().isInternalServerError)
             .andExpect(jsonPath("$.status").value(500))
             .andExpect(jsonPath("$.title").value("Internal Server Error"))

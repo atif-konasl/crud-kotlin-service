@@ -11,17 +11,17 @@ import org.springframework.security.web.SecurityFilterChain
 @Configuration
 @EnableWebSecurity
 class SecurityConfig {
-
-    private val publicEndpoints = arrayOf(
-        // Swagger / OpenAPI documentation
-        "/v3/api-docs/**",
-        "/swagger-ui/**",
-        "/swagger-ui.html",
-        "/swagger-resources/**",
-        "/webjars/**",
-        // Spring Boot Actuator
-        "/actuator/**"
-    )
+    private val publicEndpoints =
+        arrayOf(
+            // Swagger / OpenAPI documentation
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/swagger-resources/**",
+            "/webjars/**",
+            // Spring Boot Actuator
+            "/actuator/**",
+        )
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -30,10 +30,11 @@ class SecurityConfig {
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { authorize ->
                 authorize
-                    .requestMatchers(*publicEndpoints).permitAll()
-                    .anyRequest().authenticated()
-            }
-            .oauth2ResourceServer { oauth2 ->
+                    .requestMatchers(*publicEndpoints)
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated()
+            }.oauth2ResourceServer { oauth2 ->
                 oauth2.jwt(Customizer.withDefaults())
             }
 

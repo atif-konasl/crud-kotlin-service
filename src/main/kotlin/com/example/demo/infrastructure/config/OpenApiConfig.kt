@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration
 class OpenApiConfig {
-
     @Bean
     fun customOpenAPI(): OpenAPI {
         val securitySchemeName = "BearerAuth"
@@ -23,9 +22,8 @@ class OpenApiConfig {
                     .description("Hexagonal Architecture REST API in Kotlin & Spring Boot with PostgreSQL and OAuth2 JWT authentication.")
                     .version("v1.0.0")
                     .contact(Contact().name("API Engineering Team").email("api-team@example.com"))
-                    .license(License().name("Apache 2.0").url("https://www.apache.org/licenses/LICENSE-2.0"))
-            )
-            .addSecurityItem(SecurityRequirement().addList(securitySchemeName))
+                    .license(License().name("Apache 2.0").url("https://www.apache.org/licenses/LICENSE-2.0")),
+            ).addSecurityItem(SecurityRequirement().addList(securitySchemeName))
             .components(
                 Components()
                     .addSecuritySchemes(
@@ -35,8 +33,8 @@ class OpenApiConfig {
                             .type(SecurityScheme.Type.HTTP)
                             .scheme("bearer")
                             .bearerFormat("JWT")
-                            .description("Provide a valid OAuth2 JWT Bearer token to authorize API requests.")
-                    )
+                            .description("Provide a valid OAuth2 JWT Bearer token to authorize API requests."),
+                    ),
             )
     }
 }

@@ -16,7 +16,6 @@ import java.time.Instant
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
-
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @ExceptionHandler(ResourceNotFoundException::class)
@@ -60,13 +59,13 @@ class GlobalExceptionHandler {
         logger.error("Unhandled internal server exception", ex)
         return buildProblemResponse(
             HttpStatus.INTERNAL_SERVER_ERROR,
-            "An unexpected internal error occurred. Please contact system administrator."
+            "An unexpected internal error occurred. Please contact system administrator.",
         )
     }
 
     private fun buildProblemResponse(
         status: HttpStatus,
-        detail: String?
+        detail: String?,
     ): ResponseEntity<ProblemDetail> {
         val problemDetail = ProblemDetail.forStatusAndDetail(status, detail ?: status.reasonPhrase)
         problemDetail.title = status.reasonPhrase

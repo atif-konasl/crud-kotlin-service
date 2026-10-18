@@ -12,17 +12,18 @@ data class ResourceResponse(
     val status: ResourceStatus,
     val externalEnrichmentData: String?,
     val createdAt: Instant,
-    val updatedAt: Instant
+    val updatedAt: Instant,
 ) {
     companion object {
-        fun fromDomain(resource: Resource): ResourceResponse = ResourceResponse(
-            id = resource.id.value,
-            name = resource.name,
-            description = resource.description,
-            status = resource.status,
-            externalEnrichmentData = resource.externalEnrichmentData,
-            createdAt = resource.createdAt,
-            updatedAt = resource.updatedAt
-        )
+        fun fromDomain(resource: Resource): ResourceResponse =
+            ResourceResponse(
+                id = resource.id.value,
+                name = resource.name,
+                description = resource.description,
+                status = resource.status,
+                externalEnrichmentData = resource.externalEnrichmentData,
+                createdAt = resource.createdAt,
+                updatedAt = resource.updatedAt,
+            )
     }
 }

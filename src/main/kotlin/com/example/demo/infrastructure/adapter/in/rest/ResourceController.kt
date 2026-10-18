@@ -26,32 +26,33 @@ class ResourceController(
     private val createResourceUseCase: CreateResourceUseCase,
     private val getResourceUseCase: GetResourceUseCase,
     private val updateResourceUseCase: UpdateResourceUseCase,
-    private val deleteResourceUseCase: DeleteResourceUseCase
+    private val deleteResourceUseCase: DeleteResourceUseCase,
 ) {
-
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    fun create(@RequestBody request: CreateResourceRequest): ResourceResponse {
+    fun create(
+        @RequestBody request: CreateResourceRequest,
+    ): ResourceResponse {
         val command = request.toCommand()
         val created = createResourceUseCase.createResource(command)
         return ResourceResponse.fromDomain(created)
     }
 
     @GetMapping("/{id}")
-    fun getById(@PathVariable id: UUID): ResourceResponse {
+    fun getById(
+        @PathVariable id: UUID,
+    ): ResourceResponse {
         val resource = getResourceUseCase.getResourceById(ResourceId(id))
         return ResourceResponse.fromDomain(resource)
     }
 
     @GetMapping
-    fun getAll(): List<ResourceResponse> {
-        return getResourceUseCase.getAllResources().map { ResourceResponse.fromDomain(it) }
-    }
+    fun getAll(): List<ResourceResponse> = getResourceUseCase.getAllResources().map { ResourceResponse.fromDomain(it) }
 
     @PatchMapping("/{id}")
     fun patch(
         @PathVariable id: UUID,
-        @RequestBody request: UpdateResourceRequest
+        @RequestBody request: UpdateResourceRequest,
     ): ResourceResponse {
         val command = request.toCommand(id)
         val updated = updateResourceUseCase.updateResource(command)
@@ -60,7 +61,9 @@ class ResourceController(
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun delete(@PathVariable id: UUID) {
+    fun delete(
+        @PathVariable id: UUID,
+    ) {
         deleteResourceUseCase.deleteResource(ResourceId(id))
     }
 }

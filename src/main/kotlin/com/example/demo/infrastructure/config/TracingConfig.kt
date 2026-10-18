@@ -9,14 +9,13 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class TracingConfig(
     @param:Value("\${management.otlp.tracing.endpoint:http://localhost:4318/v1/traces}")
-    private val otlpEndpoint: String
+    private val otlpEndpoint: String,
 ) {
-
     @Bean
     @ConditionalOnProperty(prefix = "management.otlp.tracing", name = ["enabled"], havingValue = "true", matchIfMissing = true)
-    fun otlpHttpSpanExporter(): OtlpHttpSpanExporter {
-        return OtlpHttpSpanExporter.builder()
+    fun otlpHttpSpanExporter(): OtlpHttpSpanExporter =
+        OtlpHttpSpanExporter
+            .builder()
             .setEndpoint(otlpEndpoint)
             .build()
-    }
 }

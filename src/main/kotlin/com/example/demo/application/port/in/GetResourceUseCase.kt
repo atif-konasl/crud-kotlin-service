@@ -5,5 +5,6 @@ import com.example.demo.domain.model.ResourceId
 
 interface GetResourceUseCase {
     fun getResourceById(id: ResourceId): Resource
+
     fun getAllResources(): List<Resource>
 }

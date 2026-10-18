@@ -8,29 +8,23 @@ import org.springframework.stereotype.Component
 @Component
 class ResourcePersistenceAdapter(
     private val springDataRepository: SpringDataResourceRepository,
-    private val mapper: ResourcePersistenceMapper
+    private val mapper: ResourcePersistenceMapper,
 ) : ResourceRepositoryPort {
-
     override fun save(resource: Resource): Resource {
         val entity = mapper.toJpaEntity(resource)
         val saved = springDataRepository.save(entity)
         return mapper.toDomain(saved)
     }
 
-    override fun findById(id: ResourceId): Resource? {
-        return springDataRepository.findById(id.value).map { mapper.toDomain(it) }.orElse(null)
-    }
+    override fun findById(id: ResourceId): Resource? = springDataRepository.findById(id.value).map { mapper.toDomain(it) }.orElse(null)
 
-    override fun findAll(): List<Resource> {
-        return springDataRepository.findAll().map { mapper.toDomain(it) }
-    }
+    override fun findAll(): List<Resource> = springDataRepository.findAll().map { mapper.toDomain(it) }
 
-    override fun deleteById(id: ResourceId): Boolean {
-        return if (springDataRepository.existsById(id.value)) {
+    override fun deleteById(id: ResourceId): Boolean =
+        if (springDataRepository.existsById(id.value)) {
             springDataRepository.deleteById(id.value)
             true
         } else {
             false
         }
-    }
 }

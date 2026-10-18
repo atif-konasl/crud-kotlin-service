@@ -12,7 +12,6 @@ import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.WebClient
 
 class ExternalWebClientAdapterTest {
-
     private lateinit var mockWebServer: MockWebServer
     private lateinit var adapter: ExternalWebClientAdapter
 
@@ -21,10 +20,12 @@ class ExternalWebClientAdapterTest {
         mockWebServer = MockWebServer()
         mockWebServer.start()
 
-        val webClient = WebClient.builder()
-            .baseUrl(mockWebServer.url("/").toString())
-            .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer test-token")
-            .build()
+        val webClient =
+            WebClient
+                .builder()
+                .baseUrl(mockWebServer.url("/").toString())
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer test-token")
+                .build()
 
         adapter = ExternalWebClientAdapter(webClient)
     }
@@ -36,7 +37,8 @@ class ExternalWebClientAdapterTest {
 
     @Test
     fun `fetchEnrichmentData should call external API with auth and process high risk response`() {
-        val jsonResponse = """
+        val jsonResponse =
+            """
             {
                 "referenceId": "ref-100",
                 "category": "finance",
@@ -44,13 +46,13 @@ class ExternalWebClientAdapterTest {
                 "verified": true,
                 "tags": ["vip", "kyc"]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .setBody(jsonResponse)
+                .setBody(jsonResponse),
         )
 
         val result = adapter.fetchEnrichmentData("ref-100")
@@ -68,7 +70,8 @@ class ExternalWebClientAdapterTest {
 
     @Test
     fun `fetchEnrichmentData should process low risk response correctly`() {
-        val jsonResponse = """
+        val jsonResponse =
+            """
             {
                 "referenceId": "ref-200",
                 "category": "marketing",
@@ -76,13 +79,13 @@ class ExternalWebClientAdapterTest {
                 "verified": false,
                 "tags": []
             }
-        """.trimIndent()
+            """.trimIndent()
 
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .setBody(jsonResponse)
+                .setBody(jsonResponse),
         )
 
         val result = adapter.fetchEnrichmentData("ref-200")
@@ -99,7 +102,7 @@ class ExternalWebClientAdapterTest {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(503)
-                .setBody("Service Temporarily Unavailable")
+                .setBody("Service Temporarily Unavailable"),
         )
 
         val result = adapter.fetchEnrichmentData("ref-error")

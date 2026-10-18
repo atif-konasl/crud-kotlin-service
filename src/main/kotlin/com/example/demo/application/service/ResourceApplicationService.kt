@@ -19,23 +19,26 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 class ResourceApplicationService(
     private val repositoryPort: ResourceRepositoryPort,
-    private val externalClientPort: ExternalClientPort
-) : CreateResourceUseCase, GetResourceUseCase, UpdateResourceUseCase, DeleteResourceUseCase {
-
+    private val externalClientPort: ExternalClientPort,
+) : CreateResourceUseCase,
+    GetResourceUseCase,
+    UpdateResourceUseCase,
+    DeleteResourceUseCase {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun createResource(command: CreateResourceCommand): Resource {
         logger.info("Creating new resource: name='{}', referenceId='{}'", command.name, command.externalReferenceId)
-        
+
         // 1. Fetch external enrichment data via outbound client port
         val enrichmentData = externalClientPort.fetchEnrichmentData(command.externalReferenceId)
 
         // 2. Instantiate and validate domain entity (enforces domain invariants)
-        val newResource = Resource(
-            name = command.name,
-            description = command.description,
-            externalEnrichmentData = enrichmentData
-        )
+        val newResource =
+            Resource(
+                name = command.name,
+                description = command.description,
+                externalEnrichmentData = enrichmentData,
+            )
 
         // 3. Persist via outbound repository port
         return repositoryPort.save(newResource)

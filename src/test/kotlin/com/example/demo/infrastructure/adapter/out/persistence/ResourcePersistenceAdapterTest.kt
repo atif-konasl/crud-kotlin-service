@@ -16,7 +16,6 @@ import java.util.UUID
 
 @DataJpaTest
 class ResourcePersistenceAdapterTest {
-
     @Autowired
     private lateinit var springDataRepository: SpringDataResourceRepository
 
@@ -30,12 +29,13 @@ class ResourcePersistenceAdapterTest {
 
     @Test
     fun `save and findById should persist and retrieve domain entity`() {
-        val resource = Resource(
-            name = "Test DB Resource",
-            description = "Persistence test",
-            status = ResourceStatus.ACTIVE,
-            externalEnrichmentData = "enriched-data"
-        )
+        val resource =
+            Resource(
+                name = "Test DB Resource",
+                description = "Persistence test",
+                status = ResourceStatus.ACTIVE,
+                externalEnrichmentData = "enriched-data",
+            )
 
         val saved = adapter.save(resource)
         val retrieved = adapter.findById(saved.id)

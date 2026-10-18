@@ -19,7 +19,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @WebMvcTest(ResourceController::class)
 @Import(SecurityConfig::class)
 class SecurityConfigTest {
-
     @Autowired
     private lateinit var mockMvc: MockMvc
 
@@ -37,7 +36,8 @@ class SecurityConfigTest {
 
     @Test
     fun `protected API endpoints should reject unauthenticated requests with 401 Unauthorized`() {
-        mockMvc.perform(get("/api/v1/resources"))
+        mockMvc
+            .perform(get("/api/v1/resources"))
             .andExpect(status().isUnauthorized)
     }
 
@@ -45,7 +45,8 @@ class SecurityConfigTest {
     fun `protected API endpoints should accept authenticated requests with valid JWT`() {
         every { getResourceUseCase.getAllResources() } returns emptyList()
 
-        mockMvc.perform(get("/api/v1/resources").with(jwt()))
+        mockMvc
+            .perform(get("/api/v1/resources").with(jwt()))
             .andExpect(status().isOk)
     }
 }

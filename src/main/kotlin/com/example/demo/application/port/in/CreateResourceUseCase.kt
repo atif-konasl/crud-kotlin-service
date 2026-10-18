@@ -5,7 +5,7 @@ import com.example.demo.domain.model.Resource
 data class CreateResourceCommand(
     val name: String,
     val description: String,
-    val externalReferenceId: String
+    val externalReferenceId: String,
 )
 
 interface CreateResourceUseCase {

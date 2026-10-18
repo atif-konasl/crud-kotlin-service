@@ -16,10 +16,8 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.util.UUID
 
 class ResourceApplicationServiceTest {
-
     private val repositoryPort: ResourceRepositoryPort = mockk()
     private val externalClientPort: ExternalClientPort = mockk()
     private lateinit var service: ResourceApplicationService
@@ -31,11 +29,12 @@ class ResourceApplicationServiceTest {
 
     @Test
     fun `createResource should fetch external enrichment data and persist resource`() {
-        val command = CreateResourceCommand(
-            name = "Test Resource",
-            description = "Test Description",
-            externalReferenceId = "ext-ref-123"
-        )
+        val command =
+            CreateResourceCommand(
+                name = "Test Resource",
+                description = "Test Description",
+                externalReferenceId = "ext-ref-123",
+            )
         val enrichmentData = "{\"riskScore\": 98}"
         every { externalClientPort.fetchEnrichmentData("ext-ref-123") } returns enrichmentData
         every { repositoryPort.save(any()) } answers { firstArg() }
@@ -75,10 +74,11 @@ class ResourceApplicationServiceTest {
 
     @Test
     fun `getAllResources should return all items from repository`() {
-        val resources = listOf(
-            Resource(name = "Res 1", description = "Desc 1"),
-            Resource(name = "Res 2", description = "Desc 2")
-        )
+        val resources =
+            listOf(
+                Resource(name = "Res 1", description = "Desc 1"),
+                Resource(name = "Res 2", description = "Desc 2"),
+            )
         every { repositoryPort.findAll() } returns resources
 
         val result = service.getAllResources()

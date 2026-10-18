@@ -8,5 +8,5 @@ data class ExternalApiResponse(
     val category: String? = null,
     val riskScore: Int? = null,
     val verified: Boolean? = null,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
 )

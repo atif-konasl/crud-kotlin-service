@@ -7,6 +7,14 @@ plugins {
 
     id("org.springframework.boot") version "3.5.5"
     id("io.spring.dependency-management") version "1.1.7"
+    id("org.jlleitschuh.gradle.ktlint") version "13.1.0"
+}
+
+ktlint {
+    version.set("1.5.0")
+    android.set(false)
+    outputToConsole.set(true)
+    ignoreFailures.set(false)
 }
 
 group = "com.example.demo"
@@ -71,7 +79,7 @@ tasks.withType<Test> {
         setOf(
             TestLogEvent.FAILED,
             TestLogEvent.PASSED,
-            TestLogEvent.SKIPPED
+            TestLogEvent.SKIPPED,
         )
 }
 

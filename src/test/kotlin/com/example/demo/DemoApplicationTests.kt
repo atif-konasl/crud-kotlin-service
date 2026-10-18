@@ -8,7 +8,6 @@ import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
 class DemoApplicationTests {
-
     @MockkBean
     private lateinit var repositoryPort: ResourceRepositoryPort
 
@@ -18,5 +17,4 @@ class DemoApplicationTests {
     @Test
     fun contextLoads() {
     }
-
 }
