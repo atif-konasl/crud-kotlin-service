@@ -81,10 +81,12 @@ flowchart TD
 ## Key Features
 
 - **Full RESTful Lifecycle:** Complete `POST`, `GET`, `PATCH`, and `DELETE` endpoints with granular validation.
-- **External Client Integration:** Outbound reactive `WebClient` communicating with external services using Bearer token authentication, timeout policies, error handling, and business data normalization.
+- **High-Throughput Batch Synchronization:** Scatter-Gather concurrent fan-out (`POST /api/v1/resources/batch-sync`) executing up to 100+ concurrent asynchronous external calls using Kotlin Coroutines (`async`/`awaitAll`), true in-flight concurrency bulkheading via `Semaphore`, and non-blocking `WebClient` (`awaitSingleOrNull`).
+- **External Client Integration:** Outbound reactive `WebClient` communicating with external services using Bearer token authentication, custom Netty connection pooling (`ConnectionProvider`), timeout policies, error handling, and business data normalization.
 - **Robust Persistence:** PostgreSQL 16 backed by Spring Data JPA and automated Flyway database schema migrations.
 - **RFC 7807 Standard Error Ergonomics:** Centralized exception handling (`@RestControllerAdvice`) translating domain exceptions to standardized `ProblemDetail` structures without leaking internal stack traces.
 - **Stateless OAuth2 Security:** JWT validation against external JWKS endpoints with public whitelists for documentation and actuator health.
+- **Structured JSON Logging:** Zero-reflection log streaming via Logback `LogstashEncoder` and `ShortenedThrowableConverter` with automated trace-log correlation (`traceId`, `spanId`) for containerized log forwarders (FluentBit, Promtail, Datadog).
 - **Distributed Tracing:** Micrometer Tracing bridge + OpenTelemetry OTLP exporter delivering real-time latency graphs to Jaeger.
 - **Production-Hardened Container:** Two-stage Docker build running on minimal Alpine JRE, non-root user `appuser`, and `dumb-init` for PID 1 signal handling.
 
@@ -98,10 +100,12 @@ flowchart TD
 | **Framework** | Spring Boot | `3.5.5` |
 | **JDK Runtime** | Eclipse Temurin OpenJDK | `21` |
 | **Build Tool** | Gradle | `8.7` |
+| **Concurrency** | Kotlin Coroutines (`core` & `reactor`) | `1.10.1` |
 | **Database** | PostgreSQL | `16-alpine` |
 | **Migrations** | Flyway | `11.x` |
 | **Linter / Formatter** | KtLint Gradle Plugin | `13.1.0` (KtLint `1.5.0`) |
 | **Security** | Spring Security OAuth2 Resource Server | JWT / JWKS |
+| **Structured Logging** | Logstash Logback Encoder | `8.0` |
 | **Observability** | OpenTelemetry OTLP + Micrometer + Jaeger | `1.60` |
 | **Mocking / Testing** | MockK, SpringMockK, MockWebServer, WireMock | `3.9.1` |
 
@@ -221,16 +225,57 @@ curl -X DELETE http://localhost:8080/api/v1/resources/{id} \
   -H "Authorization: Bearer $TOKEN"
 ```
 
+### 6. Batch Synchronize Resources (`POST`)
+Trigger high-throughput concurrent scatter-gather fan-out to external APIs (e.g. 100 calls throttled via `Semaphore` to parallelism of 20):
+```bash
+curl -X POST http://localhost:8080/api/v1/resources/batch-sync \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "count": 100,
+    "referencePrefix": "ref",
+    "parallelism": 20
+  }'
+```
+Response (`201 Created`):
+```json
+{
+  "totalRequested": 100,
+  "totalPersisted": 100,
+  "durationMs": 595,
+  "items": [
+    {
+      "id": "e96c3d4f-8bc7-4384-93ab-41c195022dc7",
+      "name": "Resource for ref-1",
+      "description": "Batch synced resource for external reference ref-1",
+      "status": "ACTIVE",
+      "externalEnrichmentData": "source=external-api;ref=ref-1;category=FINANCE;riskScore=75;riskLevel=MEDIUM;verified=true;tags=[partner,fast-track]",
+      "createdAt": "2026-10-19T18:25:56.330Z",
+      "updatedAt": "2026-10-19T18:25:56.330Z"
+    }
+  ]
+}
+```
+
 ---
 
-## Observability & Distributed Tracing
+## Observability, Distributed Tracing & Structured JSON Logging
 
+### 1. Distributed Tracing with Jaeger
 Every inbound HTTP request generates an OpenTelemetry trace context that spans across the database transaction and outbound `WebClient` call.
 
 1. Issue any API request with `curl` or Swagger UI.
 2. Open Jaeger UI at `http://localhost:16686`.
 3. Select `crud-kotlin-service` under Service and click **Find Traces**.
 4. Inspect end-to-end latency, span metadata, and SQL statement executions.
+
+### 2. Zero-Reflection Structured JSON Logging
+Console logging is configured with `LogstashEncoder` and `ShortenedThrowableConverter` in [`src/main/resources/logback-spring.xml`](file:///src/main/resources/logback-spring.xml) to emit atomic single-line JSON records formatted for container log shippers (FluentBit, Promtail, Datadog):
+```json
+{"@timestamp":"2026-10-19T18:25:56.323237+02:00","@version":"1","message":"[GATHER-RESUME] awaitAll() finished. batchSync resumed on thread=[DefaultDispatcher-worker-24]. Saving 100 entities to database...","logger_name":"com.example.demo.application.service.ResourceApplicationService","thread_name":"DefaultDispatcher-worker-24","level":"INFO","level_value":20000,"stage":"Development","traceId":"0367737b6045f3d75e3c7501e59aca08","spanId":"97b38d0fbc72fdc3","env":"Development"}
+```
+* **MDC Trace Correlation:** OpenTelemetry `traceId` and `spanId` are automatically bound to SLF4J MDC and emitted in every log record.
+* **Single-Line Guarantee:** Multi-line exception stack traces have newlines escaped to prevent record fragmentation across Kubernetes cluster nodes.
 
 ---
 
@@ -253,6 +298,8 @@ The codebase maintains a balanced testing pyramid:
 - **Unit Tests:** Business logic and domain invariant validation using **MockK**.
 - **Web Controller Tests:** Request validation and HTTP status code mapping via **Spring MockMvc**.
 - **External Client Tests:** Resilience, timeout handling, and payload normalization using **Square MockWebServer**.
+- **High-Concurrency Batch Sync Tests:** Parallel scatter-gather verification against an embedded, non-blocking **WireMock** server (`BatchSyncWireMockIntegrationTest`).
+- **Empirical Concurrency Benchmarks:** Automated validation comparing `limitedParallelism` vs. `Semaphore` under unconstrained network pools (`LimitedParallelismExperimentTest`).
 - **Security Tests:** Validating 401 Unauthorized for unauthenticated requests and authorization verification for valid JWTs.
 
 ---
@@ -274,8 +321,9 @@ Automated GitHub Actions workflows are configured in [`.github/workflows/`](file
 For in-depth explanations, architectural diagrams, and technical deep-dives, explore our documentation wiki:
 
 - [**`PRESENTATION.md`**](file:///PRESENTATION.md): Complete Tech Deep-Dive guide for interviews, covering Hexagonal architecture, Kotlin Coroutines under the hood, reactive bridges, MDC propagation, and anticipated technical Q&A.
+- [**`repo-wiki/kotlin/`**](file:///repo-wiki/kotlin/): Master guides on Kotlin Coroutine concurrency patterns, `limitedParallelism` vs. `Semaphore` deep dive, coroutine debugging/tracing/leak detection, value classes, and domain exception hierarchies.
+- [**`repo-wiki/operability/`**](file:///repo-wiki/operability/): Deep-dive into structured JSON logging under the hood, Jackson streaming `JsonGenerator` zero-reflection pipeline, and single-line log formatting guarantees.
 - [**`repo-wiki/build-process/`**](file:///repo-wiki/build-process/): Deep-dives into Gradle Daemon, Spring Boot Gradle plugin, Fat JAR ClassLoaders, and Spring BOM management.
 - [**`repo-wiki/design/`**](file:///repo-wiki/design/): Detailed Hexagonal Architecture vs. alternatives and data flow analysis.
 - [**`repo-wiki/docker/`**](file:///repo-wiki/docker/): Docker multi-stage builds, non-root security hardening, and Linux PID 1 `dumb-init` mechanics.
-- [**`repo-wiki/kotlin/`**](file:///repo-wiki/kotlin/): `@JvmInline` value classes, sealed domain exception hierarchies, and Kotlin idioms.
 - [**`repo-wiki/cicd/`**](file:///repo-wiki/cicd/): GitHub Actions strategy, linting gates, and packaging workflows.
