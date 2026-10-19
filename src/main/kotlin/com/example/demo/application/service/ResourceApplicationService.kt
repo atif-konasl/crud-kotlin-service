@@ -15,10 +15,13 @@ import com.example.demo.domain.exception.ResourceNotFoundException
 import com.example.demo.domain.model.Resource
 import com.example.demo.domain.model.ResourceId
 import com.example.demo.domain.model.ResourceStatus
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -97,30 +100,42 @@ class ResourceApplicationService(
                 command.parallelism,
             )
 
-            // Bulkhead pattern: throttle concurrent outbound calls
-            val limitedDispatcher = Dispatchers.IO.limitedParallelism(command.parallelism)
+            // Concurrency Bulkhead: Semaphore maintains permits across suspension points (unlike limitedParallelism)
+            val semaphore = Semaphore(command.parallelism)
 
             val deferredResources =
                 targetIds.map { refId ->
-                    async(limitedDispatcher) {
-                        try {
-                            val enrichment = externalClientPort.fetchEnrichmentDataAsync(refId)
-                            Resource(
-                                name = "Resource for $refId",
-                                description = "Batch synced resource for external reference $refId",
-                                status = ResourceStatus.ACTIVE,
-                                externalEnrichmentData = enrichment,
-                            )
-                        } catch (ex: Exception) {
-                            logger.error("Failed to fetch enrichment for refId='{}'", refId, ex)
-                            null
+                    async(Dispatchers.IO + CoroutineName("sync-$refId")) {
+                        semaphore.withPermit {
+                            try {
+                                val enrichment = externalClientPort.fetchEnrichmentDataAsync(refId)
+                                Resource(
+                                    name = "Resource for $refId",
+                                    description = "Batch synced resource for external reference $refId",
+                                    status = ResourceStatus.ACTIVE,
+                                    externalEnrichmentData = enrichment,
+                                )
+                            } catch (ex: Exception) {
+                                logger.error("Failed to fetch enrichment for refId='{}'", refId, ex)
+                                null
+                            }
                         }
                     }
                 }
 
+            logger.info(
+                "[GATHER-SUSPEND] All {} async jobs dispatched. batchSync suspending on thread=[{}] waiting for awaitAll()...",
+                targetIds.size,
+                Thread.currentThread().name,
+            )
+
             val resourcesToSave = deferredResources.awaitAll().filterNotNull()
 
-            logger.info("External calls completed. Saving {} entities to database...", resourcesToSave.size)
+            logger.info(
+                "[GATHER-RESUME] awaitAll() finished. batchSync resumed on thread=[{}]. Saving {} entities to database...",
+                Thread.currentThread().name,
+                resourcesToSave.size,
+            )
             val savedResources = repositoryPort.saveAll(resourcesToSave)
 
             val durationMs = System.currentTimeMillis() - startTime

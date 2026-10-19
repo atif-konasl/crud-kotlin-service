@@ -9,6 +9,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.reactive.ReactorClientHttpConnector
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.netty.http.client.HttpClient
+import reactor.netty.resources.ConnectionProvider
 import java.time.Duration
 
 @Configuration
@@ -21,12 +22,24 @@ class WebClientConfig(
     private val connectTimeoutMs: Int,
     @param:Value("\${external.client.read-timeout-ms:5000}")
     private val readTimeoutMs: Long,
+    @param:Value("\${external.client.max-connections:200}")
+    private val maxConnections: Int,
 ) {
     @Bean
     fun externalApiWebClient(webClientBuilder: WebClient.Builder): WebClient {
+        // High-concurrency connection pool: prevents serialization into 16-connection waves
+        val connectionProvider =
+            ConnectionProvider
+                .builder("external-api-connection-pool")
+                .maxConnections(maxConnections)
+                .pendingAcquireMaxCount(1000)
+                .pendingAcquireTimeout(Duration.ofSeconds(45))
+                .maxIdleTime(Duration.ofSeconds(20))
+                .build()
+
         val httpClient =
             HttpClient
-                .create()
+                .create(connectionProvider)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs)
                 .responseTimeout(Duration.ofMillis(readTimeoutMs))
 

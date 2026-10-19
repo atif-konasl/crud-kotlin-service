@@ -45,7 +45,14 @@ class BatchSyncWireMockIntegrationTest {
         @BeforeAll
         @JvmStatic
         fun startWireMock() {
-            wireMockServer = WireMockServer(wireMockConfig().dynamicPort())
+            wireMockServer =
+                WireMockServer(
+                    wireMockConfig()
+                        .dynamicPort()
+                        .containerThreads(50)
+                        .asynchronousResponseEnabled(true)
+                        .asynchronousResponseThreads(50),
+                )
             wireMockServer.start()
         }
 
@@ -72,7 +79,9 @@ class BatchSyncWireMockIntegrationTest {
     fun `should call 100 external APIs concurrently via WireMock and persist all 100 resources into DB`() {
         val totalCalls = 100
 
-        // 1. Stub 100 unique endpoints in WireMock
+        val simulatedLatencyMs = 60 // 60ms simulated network latency per call
+
+        // 1. Stub 100 unique endpoints in WireMock with network latency
         for (i in 1..totalCalls) {
             val refId = "ref-$i"
             val category = if (i % 2 == 0) "electronics" else "machinery"
@@ -84,6 +93,7 @@ class BatchSyncWireMockIntegrationTest {
                         aResponse()
                             .withStatus(200)
                             .withHeader("Content-Type", "application/json")
+                            .withFixedDelay(simulatedLatencyMs)
                             .withBody(
                                 """
                                 {
@@ -120,12 +130,25 @@ class BatchSyncWireMockIntegrationTest {
                 .andReturn()
 
         // 3. Verify HTTP 201 Created and JSON summary response
-        mockMvc
-            .perform(asyncDispatch(mvcResult))
-            .andExpect(status().isCreated)
-            .andExpect(jsonPath("$.totalRequested").value(totalCalls))
-            .andExpect(jsonPath("$.totalPersisted").value(totalCalls))
-            .andExpect(jsonPath("$.items.length()").value(totalCalls))
+        val asyncResult =
+            mockMvc
+                .perform(asyncDispatch(mvcResult))
+                .andExpect(status().isCreated)
+                .andExpect(jsonPath("$.totalRequested").value(totalCalls))
+                .andExpect(jsonPath("$.totalPersisted").value(totalCalls))
+                .andExpect(jsonPath("$.items.length()").value(totalCalls))
+                .andReturn()
+
+        // Verify parallel execution: sequential would take 100 * 60ms = 6000ms.
+        // With parallelism = 20 (5 waves of 20), it finishes in ~300ms - 1500ms.
+        val actualDurationMs =
+            com.jayway.jsonpath.JsonPath
+                .read<Number>(asyncResult.response.contentAsString, "$.durationMs")
+                .toLong()
+        assertTrue(
+            actualDurationMs < 4500,
+            "Expected parallel execution (< 4500ms) but sequential execution took ${actualDurationMs}ms",
+        )
 
         // 4. Verify WireMock received exactly 100 external HTTP requests
         wireMockServer.verify(totalCalls, getRequestedFor(urlPathMatching("/api/v1/enrichment/.*")))

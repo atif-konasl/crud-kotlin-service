@@ -47,6 +47,7 @@ services:
   mock-external-api:
     image: wiremock/wiremock:3.9.1
     container_name: mock-external-api
+    command: ["--async-response-enabled", "--async-response-threads", "200", "--container-threads", "200"]
     ports:
       - "8081:8080"
     volumes:

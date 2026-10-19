@@ -43,7 +43,12 @@ class ExternalWebClientAdapter(
     }
 
     override suspend fun fetchEnrichmentDataAsync(referenceId: String): String {
-        logger.debug("Calling external API async to fetch enrichment data for referenceId='{}'", referenceId)
+        val threadBefore = Thread.currentThread().name
+        logger.info(
+            "[COROUTINE-SUSPEND] refId='{}' preparing non-blocking HTTP call on thread=[{}]",
+            referenceId,
+            threadBefore,
+        )
 
         return try {
             val response =
@@ -58,12 +63,33 @@ class ExternalWebClientAdapter(
                     .timeout(Duration.ofSeconds(5))
                     .awaitSingleOrNull()
 
+            val threadAfter = Thread.currentThread().name
+            logger.info(
+                "[COROUTINE-RESUME] refId='{}' resumed after I/O on thread=[{}] (threadSwitched={})",
+                referenceId,
+                threadAfter,
+                threadBefore != threadAfter,
+            )
+
             processEnrichmentResponse(response, referenceId)
         } catch (ex: WebClientResponseException) {
-            logger.error("External client HTTP error: status={}, body={}", ex.statusCode, ex.responseBodyAsString, ex)
+            val threadAfter = Thread.currentThread().name
+            logger.error(
+                "[COROUTINE-RESUME-HTTP-ERROR] refId='{}' resumed on thread=[{}]: status={}, body={}",
+                referenceId,
+                threadAfter,
+                ex.statusCode,
+                ex.responseBodyAsString,
+            )
             "source=external-api;referenceId=$referenceId;status=UNAVAILABLE;details=${ex.statusCode}"
         } catch (ex: Exception) {
-            logger.error("Failed to fetch enrichment data from external client for referenceId='{}'", referenceId, ex)
+            val threadAfter = Thread.currentThread().name
+            logger.error(
+                "[COROUTINE-RESUME-EXCEPTION] refId='{}' resumed on thread=[{}]: {}",
+                referenceId,
+                threadAfter,
+                ex.message,
+            )
             "source=external-api;referenceId=$referenceId;status=FAILED;details=${ex.message}"
         }
     }
