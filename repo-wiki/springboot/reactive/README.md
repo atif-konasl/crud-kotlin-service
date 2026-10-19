@@ -245,6 +245,7 @@ In Kotlin, we can achieve 100% non-blocking execution **without** reactive callb
 ## 7. Sub-Guides in this Directory
 
 For deeper technical implementation details, read the companion guides in this directory:
+- [coroutine-netty-communication-and-connection-provider.md](file:///repo-wiki/springboot/reactive/coroutine-netty-communication-and-connection-provider.md): How Kotlin Coroutines communicate with Netty (`awaitSingleOrNull`, `suspendCancellableCoroutine`, `CoreSubscriber`, `cont.resume`, thread switching), and line-by-line breakdown of `ConnectionProvider` configuration.
 - [webclient-vs-resttemplate-vs-restclient.md](file:///repo-wiki/springboot/reactive/webclient-vs-resttemplate-vs-restclient.md): Deep feature comparison, memory benchmarks, and migration strategies.
 - [the-block-dilemma-and-coroutine-bridge.md](file:///repo-wiki/springboot/reactive/the-block-dilemma-and-coroutine-bridge.md): Internal mechanics of `.block()`, `BlockingSingleSubscriber`, and step-by-step refactoring to Kotlin Coroutines.
 
@@ -265,3 +266,18 @@ For deeper technical implementation details, read the companion guides in this d
 > "Our application uses Spring MVC with a standard Tomcat servlet engine and synchronous domain ports. Calling `.block()` bridges the reactive `Mono` returned by WebClient into the synchronous return type expected by our service layer.  
 > In Spring MVC, this is safe because Tomcat worker threads are dedicated to the request and allowed to block.  
 > However, in a reactive Spring WebFlux environment, calling `.block()` on a Netty EventLoop thread is strictly prohibited and throws an `IllegalStateException`, because blocking an event loop thread freezes all other multiplexed sockets. To eliminate thread blocking entirely, the optimal evolution in Kotlin is defining the port as a `suspend fun` and using `.awaitSingle()`."
+
+---
+
+### Question 3: "How does a Kotlin Coroutine communicate with Netty without blocking threads?"
+> **Answer:**  
+> "In `ExternalWebClientAdapter`, calling `.awaitSingleOrNull()` bridges Project Reactor and Kotlin Coroutines via `suspendCancellableCoroutine`.  
+> When subscribed, Netty acquires a pooled TCP socket and initiates non-blocking socket I/O. The coroutine suspends immediately and returns `COROUTINE_SUSPENDED`, freeing the `DefaultDispatcher` thread to process other tasks.  
+> Netty's `NioEventLoop` uses OS kernel multiplexing (`epoll_wait` on Linux). When HTTP response packets arrive, Netty decodes the payload and triggers `CoreSubscriber.onNext()`, which invokes `cont.resume(data)`, queuing the coroutine back onto `Dispatchers.Default` to resume execution."
+
+---
+
+### Question 4: "Why did you configure `ConnectionProvider` with `maxConnections(200)` and `maxIdleTime(20s)`?"
+> **Answer:**  
+> "By default, Reactor Netty limits connection pool size to `max(16, 2 * CPU_Cores)`. For a 100-request concurrent batch sync, 16 connections forces 84 requests into sequential waves, severely throttling throughput. We set `maxConnections(200)` so all concurrent requests acquire sockets immediately.  
+> Furthermore, we set `maxIdleTime(20s)` because upstream load balancers (like AWS ALB or Nginx) drop idle connections after 30 to 60 seconds. Having our client proactively retire idle connections before the server does prevents stale socket reuse and avoids `PrematureCloseException: Connection reset by peer`."
