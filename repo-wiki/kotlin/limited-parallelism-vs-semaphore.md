@@ -209,3 +209,41 @@ suspend fun fetchExternalData(refId: String): ExternalData =
 > When calling a partner API with a non-blocking client like Spring WebClient, the coroutine suspends at `awaitSingleOrNull()`. Upon suspension, the coroutine immediately yields its dispatcher thread back to the pool. The dispatcher sees an idle thread and immediately dequeues the next coroutine, causing all queued jobs to fire within milliseconds.
 > 
 > To enforce a true outbound bulkhead where at most 10 requests are in-flight on the wire at any moment, we must use a Kotlin `Semaphore(10)` with `semaphore.withPermit`. A semaphore permit is held across the entire suspension lifecycle until the remote response arrives, shielding both the network card and the partner service from traffic spikes."
+
+---
+
+## 8. The Counter-Intuitive Experiment: `limitedParallelism(10)` on an Unconstrained Network
+
+### The Senior Interview Riddle
+> **Question**: *"Suppose we configure Reactor Netty's connection pool to 200, WireMock to 200 container threads, and downstream network latency to 100ms. If we send 100 requests using `Dispatchers.IO.limitedParallelism(10)`, how long will it take?"*
+
+* **The Intuitive (Wrong) Guess**:  
+  *"Since parallelism is 10, 100 requests will execute in 10 waves of 10. Each wave takes 100ms. Total duration $\approx$ 1,000ms."*
+* **The Actual Reality**:  
+  **It takes ~136ms for the network calls (~200ms total including database persistence)!**
+
+### Why It Takes 136ms Instead of 1,000ms:
+1. Each of the 100 coroutines executes its 0.05ms of CPU setup code.
+2. At `awaitSingleOrNull()`, each coroutine **vacates its dispatcher thread immediately**.
+3. Within **4 milliseconds**, all 100 requests have been handed off to Netty's EventLoop.
+4. Because the network bottleneck is removed (Netty has 200 connections, WireMock has 200 threads):
+   * Netty opens 100 concurrent TCP sockets.
+   * WireMock accepts all 100 connections simultaneously.
+   * WireMock sleeps for 100ms in parallel.
+   * All 100 responses return in **one single wave**!
+5. Even though the developer wrote `limitedParallelism(10)`, the application effectively executed with **concurrency of 100**.
+
+### Empirical Verification: Live Test Suite
+This behavior is verified in [`LimitedParallelismExperimentTest.kt`](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/src/test/kotlin/com/example/demo/LimitedParallelismExperimentTest.kt):
+
+```text
+=================================================================
+EMPIRICAL COMPARISON (Netty 200 pool + WireMock 200 threads):
+1. limitedParallelism(10) Duration: 136ms
+2. Semaphore(10)          Duration: 1065ms
+=================================================================
+```
+
+### The Architectural Hazard: Accidental Downstream DDOS
+If your team uses `limitedParallelism(10)` to "protect" a third-party partner whose rate limit is 10 requests/second, **it will offer 0 protection**. All 100 requests will fire in milliseconds, overwhelming the partner service and triggering `HTTP 429 Too Many Requests`. To truly enforce a downstream rate or concurrency limit, **always use `Semaphore(N)`**.
+

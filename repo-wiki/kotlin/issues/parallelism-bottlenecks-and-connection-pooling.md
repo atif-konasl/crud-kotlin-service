@@ -343,3 +343,6 @@ Duration now **scales inversely with parallelism** as theoretically intended, sm
 #### Q4: "What would happen if WireMock took 2 seconds per call instead of 100ms?"
 * **Answer**: "With 100 requests and a 20-connection pool, 100 requests in 5 waves would take $5 \times 2\text{s} = 10\text{ seconds}$. The 5-second `WebClient.timeout(Duration.ofSeconds(5))` would trigger for the queued requests in waves 3, 4, and 5, leading to `TimeoutException` and partial batch failure. This highlights why connection pool capacity must be aligned with timeout budgets and downstream concurrency capacity."
 
+#### Q5: "What if we use `limitedParallelism(10)` with Netty at 200 connections and WireMock at 200 threads? How long will 100 requests take?"
+* **Answer**: "Most developers intuitively assume it will take ~1,000ms (10 waves of 10). However, the reality is it will take **~136ms** (~200ms with DB persistence). Because `limitedParallelism` releases its thread at suspension, all 100 requests dispatch into Netty within 4ms. Since Netty and WireMock now have 200 connections/threads, all 100 requests execute concurrently in a single wave, completely bypassing the configured limit of 10. This proves `limitedParallelism` is not a bulkhead for asynchronous I/O and cannot protect downstream services."
+
