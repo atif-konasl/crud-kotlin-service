@@ -11,13 +11,6 @@ plugins {
     id("org.flywaydb.flyway") version "11.17.1"
 }
 
-ktlint {
-    version.set("1.5.0")
-    android.set(false)
-    outputToConsole.set(true)
-    ignoreFailures.set(false)
-}
-
 group = "com.example.demo"
 version = "0.0.1-SNAPSHOT"
 description = "crud-kotlin-service"
@@ -97,4 +90,11 @@ tasks.withType<Test> {
 
 tasks.bootJar {
     archiveFileName.set("app.jar")
+}
+
+ktlint {
+    version.set("1.5.0")
+    android.set(false)
+    outputToConsole.set(true)
+    ignoreFailures.set(false)
 }

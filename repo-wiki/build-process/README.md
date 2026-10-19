@@ -39,7 +39,7 @@ plugins {
   - Provides the `bootJar` task that packages your compiled code and all runtime dependencies into a self-contained executable "fat JAR" with an embedded web server.
   - Adds the `bootRun` task to launch the application locally with rapid restart capabilities.
   - Generates build-info metadata for Spring Boot Actuator (`/actuator/info`).
-* **Deep Dive Guides:** 
+  - [gradle-tasks-and-quality-gates.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/gradle-tasks-and-quality-gates.md) for full explanation of Kotlin `-Xjsr305=strict` compiler flag, JUnit Platform logging, `app.jar` bootJar naming, and strict KtLint quality gates.
   - [fat-jar-and-classloader.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/fat-jar-and-classloader.md) for a beginner-to-advanced explanation of `.class` files, standard JVM limitations, and how Spring Boot's custom ClassLoader solves the Fat JAR problem.
   - [spring-boot-gradle-plugin.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/spring-boot-gradle-plugin.md) for full details on Gradle tasks, `JarLauncher`, and Docker layer caching.
   - [gradle-build-directory.md](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/repo-wiki/build-process/gradle-build-directory.md) for a detailed breakdown of all folders generated inside `build/`.
