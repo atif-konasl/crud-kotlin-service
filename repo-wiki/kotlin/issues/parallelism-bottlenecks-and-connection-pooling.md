@@ -80,6 +80,72 @@ val deferredResources = targetIds.map { refId ->
 * Because the thread is instantly free, `limitedDispatcher` dequeues the next coroutine, which fires its HTTP call and suspends.
 * **Result**: All 100 coroutines fired their HTTP requests within **4 milliseconds**, completely bypassing the `parallelism = 10` or `20` limit.
 
+#### The Intuitive Analogy: Restaurant Waiters vs. Dining Tables
+To visualize why `limitedParallelism` cannot throttle non-blocking calls, compare a restaurant:
+* **Waiters (CPU Threads)**: Take orders and deliver plates.
+* **Kitchen (Remote Network / WireMock)**: Prepares the food (takes 100ms).
+* **Tables (Semaphore Permits)**: Seats where customers eat.
+
+1. **When you only limit Waiters (`limitedParallelism = 10`)**:
+   * You have 10 Waiters and 100 customers.
+   * Waiter 1 takes Customer 1's order and hands it to the kitchen.
+   * *Does Waiter 1 stand at the kitchen counter for 100ms waiting for the food?* **NO!** In non-blocking coroutines, the coroutine **suspends** and releases the waiter immediately.
+   * Waiter 1 turns around in 0.05ms to take Customer 11's order!
+   * In 4 milliseconds, the 10 fast waiters have handed **all 100 orders to the kitchen**.
+   * The kitchen is now slammed with 100 orders simultaneously, while the 10 waiters stand idle.
+   * `limitedParallelism` only throttled how many waiters were writing down orders at the exact same microsecond; it did **not** limit how many orders were cooking in the kitchen!
+
+2. **When you limit Tables (`Semaphore = 10`)**:
+   * The restaurant has a door bouncer and only **10 Tables**.
+   * 10 customers sit down. Customers 11–100 must wait outside on the sidewalk.
+   * The 10 customers place their orders.
+   * Even though the waiter walks away while the kitchen cooks for 100ms, **the customer occupies the table!**
+   * Customer 11 cannot enter until Customer 1 finishes eating, vacates the table, and returns the permit to the bouncer.
+   * The kitchen never has more than 10 orders cooking at any moment!
+
+#### The Bytecode Decomposition: What the JVM Actually Does
+The Kotlin compiler breaks every suspending function into sequential bytecode chunks called **Continuations**:
+
+```kotlin
+async(limitedDispatcher) {
+    // [CHUNK 1]: CPU work (takes ~0.05ms)
+    val url = "/api/v1/enrichment/$refId"
+    
+    // SUSPENSION POINT! (Releases the thread immediately!)
+    val result = webClient.get().uri(url).awaitSingleOrNull() // Takes 100ms over network
+    
+    // [CHUNK 2]: CPU work after response (takes ~0.05ms)
+    processResult(result)
+}
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Coroutine as Coroutine 1
+    participant Thread as Dispatcher Thread 1
+    participant Netty as Network / Netty Socket
+    
+    Coroutine->>Thread: 1. Runs [CHUNK 1] on Thread 1 (takes 0.05ms)
+    Note over Coroutine,Thread: Invokes awaitSingleOrNull()
+    Thread->>Netty: 2. Dispatches HTTP packet to Netty
+    Note over Coroutine,Thread: COROUTINE SUSPENDS!
+    Coroutine--xThread: 3. Thread 1 is FREED and returned to pool!
+    Note over Thread: Thread 1 is now idle! It immediately runs Coroutine 2, 3, 4...
+    Note over Netty: 100ms passes (HTTP packet traveling over network)
+    Netty-->>Thread: 4. HTTP response arrived! Netty signals resume
+    Thread->>Coroutine: 5. Thread (any available) resumes Coroutine 1 and runs [CHUNK 2]
+```
+
+#### Side-by-Side Comparison
+
+| Feature | `Dispatchers.IO.limitedParallelism(N)` | `kotlinx.coroutines.sync.Semaphore(N)` |
+| :--- | :--- | :--- |
+| **What it limits** | Number of **OS threads** executing code simultaneously. | Number of **in-flight operations**, regardless of whether they are running or suspended. |
+| **During `awaitSingleOrNull()` / `delay()`** | **Releases the thread immediately**. Next queued coroutine starts right away. | **Keeps holding the permit**. Other coroutines are blocked from starting. |
+| **Best used for** | **CPU-heavy tasks** or **legacy blocking I/O** (e.g., `Thread.sleep()`, JDBC, password hashing). | **Non-blocking asynchronous I/O** (e.g., Spring WebClient, gRPC, Ktor, S3 uploads). |
+| **In our 100-request batch sync** | All 100 calls fired within 4ms (0% throttling of network traffic). | Exactly $N$ calls active on the network at any moment (true network bulkhead). |
+
 > [!IMPORTANT]
 > **Key Architectural Takeaway**:
 > * `limitedParallelism(N)` throttles **active thread computation** (CPU-bound work or blocking I/O).
