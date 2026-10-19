@@ -1,8 +1,9 @@
 server:
   shutdown: graceful
   port: ${SERVER_PORT:8080}
+  max-http-request-header-size: 10KB # or 16KB / 32KB (Default: 8KB)
   servlet:
-    context-path: /api/v1
+    context-path: /
   tomcat:
     threads:
       max: 200                # Maximum worker threads in the pool
@@ -10,7 +11,10 @@ server:
     max-connections: 8192     # Maximum concurrent TCP connections Tomcat will hold
     accept-count: 100         # OS queue length for incoming connection requests when all threads are busy
     connection-timeout: 20000 # 20 seconds before dropping an idle TCP socket
-
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json
+    min-response-size: 2048 # 2 KB
 
 spring:
   application:
@@ -18,6 +22,20 @@ spring:
 
   lifecycle:
     timeout-per-shutdown-phase: 30s
+
+  mvc:
+    format:
+      date: iso
+      date-time: iso
+      time: iso
+
+  jackson:
+    property-naming-strategy: LOWER_CAMEL_CASE # or SNAKE_CASE
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: false
+    serialization:
+      write-dates-as-timestamps: false
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/crud_db}

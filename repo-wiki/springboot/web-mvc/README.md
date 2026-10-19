@@ -147,6 +147,9 @@ flowchart TD
 #### Why this matters:
 - **`threads.max: 200`**: Allows up to 200 concurrent HTTP requests to execute simultaneously. If all 200 threads are busy (e.g., waiting on slow database queries or external APIs), subsequent requests wait in the queue.
 - **`accept-count: 100`**: If all worker threads are busy and the queue fills past 100, the OS immediately rejects further connection attempts (`Connection Refused`), protecting the server from running out of memory.
+- **Deep Dive Guides:**
+  - See [tomcat-connection-multiplexing.md](file:///repo-wiki/springboot/web-mvc/tomcat-connection-multiplexing.md) for how `accept-count: 100` feeds into `max-connections: 8192` via Acceptor, Poller (`epoll`), and Worker threads.
+  - See [what-is-a-socket.md](file:///repo-wiki/springboot/web-mvc/what-is-a-socket.md) for a foundational explanation of network sockets, OS file descriptors, the 4-tuple, and the socket lifecycle in Java.
 
 ---
 
@@ -160,6 +163,7 @@ server:
 ```
 - Compresses JSON payloads exceeding 2KB with Gzip if the client sends `Accept-Encoding: gzip`.
 - **Impact:** Decreases network bandwidth consumption by 60%–80% for large collection endpoints (`GET /api/v1/resources`), lowering latency for mobile and frontend clients.
+- **Deep Dive Guide:** See [http-response-compression.md](file:///repo-wiki/springboot/web-mvc/http-response-compression.md) for the wire-level handshake, why images/videos are excluded, the 2KB threshold rationale, and server CPU vs. network trade-offs.
 
 ---
 
@@ -204,6 +208,7 @@ spring:
 - Introduced in Spring Boot 3.0 / Spring Framework 6.0.
 - When enabled, Spring MVC automatically wraps standard web exceptions (`MethodArgumentNotValidException`, `HttpRequestMethodNotSupportedException`, etc.) into standardized **RFC 7807 `ProblemDetail`** JSON responses containing `type`, `title`, `status`, and `detail`.
 - Matches the custom error handling implemented in our [`GlobalExceptionHandler.kt`](file:///src/main/kotlin/com/example/demo/infrastructure/adapter/in/rest/GlobalExceptionHandler.kt).
+- **Deep Dive Guide:** See [rfc-7807-problem-details-and-swagger.md](file:///repo-wiki/springboot/web-mvc/rfc-7807-problem-details-and-swagger.md) for how `ProblemDetail` is exposed in OpenAPI / Swagger UI via `OperationCustomizer` in `OpenApiConfig.kt` and why custom exceptions work without the YAML setting.
 
 ---
 
@@ -299,6 +304,8 @@ spring:
 ```
 - Kotlin conventions use camelCase (`externalReferenceId`).
 - If integrating with legacy systems or Python/Ruby APIs requiring snake_case (`external_reference_id`), setting this globally eliminates the need for `@JsonProperty("external_reference_id")` on every single field.
+- **Swagger / OpenAPI Synchronization:** By default, Swagger UI does not automatically reflect Spring Boot's Jackson naming strategy and continues to display `camelCase` schemas. Registering a `ModelResolver(objectMapper)` `@Bean` bridges Spring's `ObjectMapper` with Swagger-Core so request/response schemas in Swagger UI perfectly match the runtime JSON format.
+- **Deep Dive Guide:** See [jackson-naming-strategy-and-openapi.md](file:///repo-wiki/springboot/web-mvc/jackson-naming-strategy-and-openapi.md) for a comprehensive breakdown, `@JsonProperty` overrides, Kotlin data class handling, and automated unit tests.
 
 ---
 

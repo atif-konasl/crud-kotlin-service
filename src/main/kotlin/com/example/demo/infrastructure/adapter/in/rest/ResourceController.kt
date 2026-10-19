@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 @RestController
-@RequestMapping("/resources")
+@RequestMapping("/api/v1/resources")
 class ResourceController(
     private val createResourceUseCase: CreateResourceUseCase,
     private val getResourceUseCase: GetResourceUseCase,
