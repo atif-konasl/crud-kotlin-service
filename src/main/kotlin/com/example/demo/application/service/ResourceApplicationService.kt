@@ -15,6 +15,7 @@ import com.example.demo.domain.exception.ResourceNotFoundException
 import com.example.demo.domain.model.Resource
 import com.example.demo.domain.model.ResourceId
 import com.example.demo.domain.model.ResourceStatus
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -102,7 +103,7 @@ class ResourceApplicationService(
 
             val deferredResources =
                 targetIds.map { refId ->
-                    async(limitedDispatcher) {
+                    async(limitedDispatcher + CoroutineName("sync-$refId")) {
                         try {
                             val enrichment = externalClientPort.fetchEnrichmentDataAsync(refId)
                             Resource(
@@ -118,9 +119,19 @@ class ResourceApplicationService(
                     }
                 }
 
+            logger.info(
+                "[GATHER-SUSPEND] All {} async jobs dispatched. batchSync suspending on thread=[{}] waiting for awaitAll()...",
+                targetIds.size,
+                Thread.currentThread().name,
+            )
+
             val resourcesToSave = deferredResources.awaitAll().filterNotNull()
 
-            logger.info("External calls completed. Saving {} entities to database...", resourcesToSave.size)
+            logger.info(
+                "[GATHER-RESUME] awaitAll() finished. batchSync resumed on thread=[{}]. Saving {} entities to database...",
+                Thread.currentThread().name,
+                resourcesToSave.size,
+            )
             val savedResources = repositoryPort.saveAll(resourcesToSave)
 
             val durationMs = System.currentTimeMillis() - startTime

@@ -64,6 +64,10 @@ dependencies {
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
 
+    // Logging (Logstash JSON Encoder & Janino for Logback conditionals)
+    implementation("net.logstash.logback:logstash-logback-encoder:8.0")
+    implementation("org.codehaus.janino:janino")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
