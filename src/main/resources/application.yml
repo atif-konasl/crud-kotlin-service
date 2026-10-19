@@ -1,6 +1,23 @@
+server:
+  shutdown: graceful
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api/v1
+  tomcat:
+    threads:
+      max: 200                # Maximum worker threads in the pool
+      min-spare: 20           # Minimum worker threads kept alive and idle
+    max-connections: 8192     # Maximum concurrent TCP connections Tomcat will hold
+    accept-count: 100         # OS queue length for incoming connection requests when all threads are busy
+    connection-timeout: 20000 # 20 seconds before dropping an idle TCP socket
+
+
 spring:
   application:
     name: crud-kotlin-service
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/crud_db}
@@ -34,10 +51,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8080/oauth2/jwks}
-
-server:
-  port: ${SERVER_PORT:8080}
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8081/oauth2/jwks}
 
 management:
   endpoints:

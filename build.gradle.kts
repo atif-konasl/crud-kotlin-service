@@ -8,6 +8,7 @@ plugins {
     id("org.springframework.boot") version "3.5.5"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.jlleitschuh.gradle.ktlint") version "13.1.0"
+    id("org.flywaydb.flyway") version "11.17.1"
 }
 
 ktlint {

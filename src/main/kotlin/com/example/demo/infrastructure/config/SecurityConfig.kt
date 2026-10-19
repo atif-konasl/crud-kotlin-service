@@ -17,8 +17,6 @@ class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/swagger-resources/**",
-            "/webjars/**",
             // Spring Boot Actuator
             "/actuator/**",
         )
