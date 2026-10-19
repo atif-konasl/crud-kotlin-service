@@ -326,4 +326,5 @@ For in-depth explanations, architectural diagrams, and technical deep-dives, exp
 - [**`repo-wiki/build-process/`**](file:///repo-wiki/build-process/): Deep-dives into Gradle Daemon, Spring Boot Gradle plugin, Fat JAR ClassLoaders, and Spring BOM management.
 - [**`repo-wiki/design/`**](file:///repo-wiki/design/): Detailed Hexagonal Architecture vs. alternatives and data flow analysis.
 - [**`repo-wiki/docker/`**](file:///repo-wiki/docker/): Docker multi-stage builds, non-root security hardening, and Linux PID 1 `dumb-init` mechanics.
+- [**`repo-wiki/test/`**](file:///repo-wiki/test/): Comprehensive testing guides covering Hexagonal testing boundaries, pure MockK service testing with `runTest`, MockMvc coroutine async dispatch, OkHttp `MockWebServer`, `@DataJpaTest`, and WireMock high-concurrency benchmarks.
 - [**`repo-wiki/cicd/`**](file:///repo-wiki/cicd/): GitHub Actions strategy, linting gates, and packaging workflows.
