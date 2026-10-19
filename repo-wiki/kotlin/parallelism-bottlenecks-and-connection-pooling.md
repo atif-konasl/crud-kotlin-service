@@ -143,6 +143,34 @@ val savedResources = repositoryPort.saveAll(resourcesToSave)       // ~56ms
 
 ---
 
+### Layer 4: Downstream Server Bottleneck (WireMock / Jetty Container Threads)
+
+Even after fixing the client-side `Semaphore` and expanding Reactor Netty's connection pool to 200, a second ceiling emerged during testing:
+* Parallelism `10` took **~1,150ms** (10 waves $\times$ 100ms + DB save).
+* Parallelism `20` dropped to **~750ms** (5 waves $\times$ 100ms + DB save).
+* Parallelism `40` and `80` **failed to improve beyond ~750ms**!
+
+#### Why Concurrency Plateaued at 20:
+WireMock runs on an embedded **Eclipse Jetty** server. In `docker-compose.yml`, WireMock was started with:
+```yaml
+command: ["--async-response-enabled", "--async-response-threads", "50"]
+```
+
+While `--async-response-threads` was set to 50, WireMock's `--container-threads` (the Jetty worker thread pool that accepts incoming TCP connections and dispatches requests) was left at its **default of 10** (capped at ~20 on multicore machines)!
+
+Testing WireMock directly bypassing Spring Boot verified this downstream bottleneck:
+* 20 direct concurrent requests: **112ms**
+* 40 direct concurrent requests: **315ms** (Jetty serialized into 2 waves of 20)
+* 80 direct concurrent requests: **530ms** (Jetty serialized into 4 waves of 20)
+
+**The Downstream Fix**: Scaling WireMock's Jetty container threads in [`docker-compose.yml`](file:///Users/atifanowar/Workspace/interview/crud-kotlin-service/docker-compose.yml):
+```yaml
+command: ["--async-response-enabled", "--async-response-threads", "200", "--container-threads", "200"]
+```
+Direct WireMock concurrency immediately dropped from 315ms/530ms down to **~155ms** across 80 concurrent connections!
+
+---
+
 ## 3. The Solution: How to Fix Both Layers
 
 ### Step 1: Expand Reactor Netty Connection Pool
@@ -198,18 +226,19 @@ val deferredResources = targetIds.map { refId ->
 
 ---
 
-## 4. Expected Performance Scaling After Fix
+## 4. Measured Performance Scaling After Full End-to-End Fix
 
-With `ConnectionProvider(maxConnections = 200)` and `Semaphore(parallelism)`:
+With `ConnectionProvider(maxConnections = 200)`, Coroutine `Semaphore(parallelism)`, and WireMock `--container-threads 200`:
 
-| Outbound Calls | WireMock Latency | Parallelism | Execution Model | Expected Duration |
-| :---: | :---: | :---: | :---: | :---: |
-| 100 | 100ms | **10** | 10 waves of 10 | **~1,050ms** |
-| 100 | 100ms | **20** | 5 waves of 20 | **~550ms** |
-| 100 | 100ms | **50** | 2 waves of 50 | **~250ms** |
-| 100 | 100ms | **100** | 1 wave of 100 | **~150ms** (6x speedup!) |
+| Outbound Calls | WireMock Latency | Configured Parallelism | Execution Model | **Measured Duration (Live Service)** | Scaling vs Parallelism 10 |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 100 | 100ms | **10** | 10 waves of 10 | **1,148ms** | Baseline |
+| 100 | 100ms | **20** | 5 waves of 20 | **595ms** | ~1.9x faster |
+| 100 | 100ms | **40** | 2.5 waves of 40 | **369ms** | ~3.1x faster |
+| 100 | 100ms | **80** | 1.25 waves of 80 | **304ms** | ~3.8x faster |
+| 100 | 100ms | **100** | 1 wave of 100 | **200ms** | **5.7x faster** |
 
-Duration now **scales inversely with parallelism** as theoretically intended!
+Duration now **scales inversely with parallelism** as theoretically intended, smoothly dropping from 1,148ms down to 200ms (100ms network delay + ~100ms DB persistence).
 
 ---
 
@@ -221,12 +250,16 @@ Duration now **scales inversely with parallelism** as theoretically intended!
 >
 > **Task**: "I needed to profile our asynchronous pipeline end-to-end to identify why the concurrency settings were not translating into performance gains."
 >
-> **Action**: "I analyzed our JSON logs with microsecond precision and discovered two compounding bottlenecks:
-> First, at the coroutine layer, we were using `Dispatchers.IO.limitedParallelism(N)`. Because non-blocking `WebClient.awaitSingleOrNull()` suspends the coroutine, the dispatcher thread is immediately vacated. This allowed all 100 coroutines to dispatch within 4ms, rendering `limitedParallelism` ineffective at throttling in-flight I/O.
-> Second, at the networking layer, Spring WebClient is backed by Reactor Netty. Without an explicit `ConnectionProvider`, Netty defaults to a connection pool of `2 * CPU cores` (capped at 16–20 sockets on our machine). Even with 100 coroutines fired, Netty queued the requests into 6 sequential 100ms waves.
-> I resolved this by introducing a Kotlin `Semaphore(parallelism)` with `semaphore.withPermit` to properly throttle in-flight requests across suspension points, and configured a custom Netty `ConnectionProvider` with `maxConnections(200)`."
+> **Action**: "I analyzed our JSON logs with microsecond precision and discovered three compounding bottlenecks across the distributed pipeline:
+> 1. At the coroutine layer, `Dispatchers.IO.limitedParallelism(N)` was ineffective because non-blocking `WebClient.awaitSingleOrNull()` immediately vacated its dispatcher thread upon suspension, firing all 100 requests in 4ms.
+> 2. At the networking layer, Spring WebClient's Reactor Netty client defaulted to `2 * CPU cores` (capped at 16–20 sockets on our machine).
+> 3. At the downstream mock server layer (WireMock on Jetty), Jetty's `--container-threads` defaulted to 10–20, capping inbound connection acceptance even after the client pool was tuned.
+> I resolved this systematically:
+> - Replaced `limitedParallelism` with Kotlin's coroutine `Semaphore(parallelism)` to hold permits across suspension points.
+> - Configured a custom Reactor Netty `ConnectionProvider` with `maxConnections(200)`.
+> - Scaled WireMock's container threads and async worker threads to 200 in `docker-compose.yml`."
 >
-> **Result**: "Our response time scaled linearly with parallelism: 100 concurrent calls with a 100ms downstream delay dropped from 700ms down to ~150ms—a **4.6x latency reduction**."
+> **Result**: "Our response time scaled linearly with parallelism: 100 concurrent calls dropped from 1,148ms down to 200ms—a **5.7x latency reduction**."
 
 ---
 
@@ -238,5 +271,9 @@ Duration now **scales inversely with parallelism** as theoretically intended!
 #### Q2: "Why does Netty default to such a small connection pool (16-20)?"
 * **Answer**: "Reactor Netty defaults to `2 * availableProcessors` because in standard microservice architectures, opening hundreds of persistent TCP sockets to a single host can cause socket exhaustion, ephemeral port starvation, or overwhelm downstream servers. For microservices with high concurrent fan-out, engineers must intentionally tune the `ConnectionProvider` pool size and pending queue timeouts."
 
-#### Q3: "What would happen if WireMock took 2 seconds per call instead of 100ms?"
+#### Q3: "What happens when client concurrency exceeds downstream server capacity?"
+* **Answer**: "This is the classic distributed systems trap we experienced at parallelism 40 and 80. Even though our client was capable of dispatching 80 concurrent connections, the downstream Jetty container thread pool was capped at 20. Requests accumulated in the TCP accept backlog and Jetty selector queues, causing serialization into 20-connection waves. To solve high-concurrency fan-out, client connection pools, dispatcher bulkheads, and downstream server container thread pools must be aligned end-to-end."
+
+#### Q4: "What would happen if WireMock took 2 seconds per call instead of 100ms?"
 * **Answer**: "With 100 requests and a 20-connection pool, 100 requests in 5 waves would take $5 \times 2\text{s} = 10\text{ seconds}$. The 5-second `WebClient.timeout(Duration.ofSeconds(5))` would trigger for the queued requests in waves 3, 4, and 5, leading to `TimeoutException` and partial batch failure. This highlights why connection pool capacity must be aligned with timeout budgets and downstream concurrency capacity."
+
