@@ -1,10 +1,14 @@
 package com.example.demo.infrastructure.adapter.`in`.rest
 
+import com.example.demo.application.port.`in`.BatchSyncCommand
+import com.example.demo.application.port.`in`.BatchSyncResourcesUseCase
 import com.example.demo.application.port.`in`.CreateResourceUseCase
 import com.example.demo.application.port.`in`.DeleteResourceUseCase
 import com.example.demo.application.port.`in`.GetResourceUseCase
 import com.example.demo.application.port.`in`.UpdateResourceUseCase
 import com.example.demo.domain.model.ResourceId
+import com.example.demo.infrastructure.adapter.`in`.rest.dto.BatchSyncRequest
+import com.example.demo.infrastructure.adapter.`in`.rest.dto.BatchSyncResponse
 import com.example.demo.infrastructure.adapter.`in`.rest.dto.CreateResourceRequest
 import com.example.demo.infrastructure.adapter.`in`.rest.dto.ResourceResponse
 import com.example.demo.infrastructure.adapter.`in`.rest.dto.UpdateResourceRequest
@@ -27,7 +31,18 @@ class ResourceController(
     private val getResourceUseCase: GetResourceUseCase,
     private val updateResourceUseCase: UpdateResourceUseCase,
     private val deleteResourceUseCase: DeleteResourceUseCase,
+    private val batchSyncResourcesUseCase: BatchSyncResourcesUseCase,
 ) {
+    @PostMapping("/batch-sync")
+    @ResponseStatus(HttpStatus.CREATED)
+    suspend fun batchSync(
+        @RequestBody(required = false) request: BatchSyncRequest?,
+    ): BatchSyncResponse {
+        val command = request?.toCommand() ?: BatchSyncCommand()
+        val result = batchSyncResourcesUseCase.batchSync(command)
+        return BatchSyncResponse.fromResult(result)
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(

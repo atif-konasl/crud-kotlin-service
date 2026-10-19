@@ -16,6 +16,12 @@ class ResourcePersistenceAdapter(
         return mapper.toDomain(saved)
     }
 
+    override fun saveAll(resources: List<Resource>): List<Resource> {
+        val entities = resources.map { mapper.toJpaEntity(it) }
+        val saved = springDataRepository.saveAll(entities)
+        return saved.map { mapper.toDomain(it) }
+    }
+
     override fun findById(id: ResourceId): Resource? = springDataRepository.findById(id.value).map { mapper.toDomain(it) }.orElse(null)
 
     override fun findAll(): List<Resource> = springDataRepository.findAll().map { mapper.toDomain(it) }

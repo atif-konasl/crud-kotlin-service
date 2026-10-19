@@ -2,6 +2,7 @@ package com.example.demo.infrastructure.adapter.out.client
 
 import com.example.demo.application.port.out.ExternalClientPort
 import com.example.demo.infrastructure.adapter.out.client.dto.ExternalApiResponse
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatusCode
 import org.springframework.stereotype.Component
@@ -30,6 +31,32 @@ class ExternalWebClientAdapter(
                     }.bodyToMono(ExternalApiResponse::class.java)
                     .timeout(Duration.ofSeconds(5))
                     .block()
+
+            processEnrichmentResponse(response, referenceId)
+        } catch (ex: WebClientResponseException) {
+            logger.error("External client HTTP error: status={}, body={}", ex.statusCode, ex.responseBodyAsString, ex)
+            "source=external-api;referenceId=$referenceId;status=UNAVAILABLE;details=${ex.statusCode}"
+        } catch (ex: Exception) {
+            logger.error("Failed to fetch enrichment data from external client for referenceId='{}'", referenceId, ex)
+            "source=external-api;referenceId=$referenceId;status=FAILED;details=${ex.message}"
+        }
+    }
+
+    override suspend fun fetchEnrichmentDataAsync(referenceId: String): String {
+        logger.debug("Calling external API async to fetch enrichment data for referenceId='{}'", referenceId)
+
+        return try {
+            val response =
+                externalApiWebClient
+                    .get()
+                    .uri("/api/v1/enrichment/{referenceId}", referenceId)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError) { clientResponse ->
+                        logger.error("External API returned error status: {}", clientResponse.statusCode())
+                        clientResponse.createException()
+                    }.bodyToMono(ExternalApiResponse::class.java)
+                    .timeout(Duration.ofSeconds(5))
+                    .awaitSingleOrNull()
 
             processEnrichmentResponse(response, referenceId)
         } catch (ex: WebClientResponseException) {

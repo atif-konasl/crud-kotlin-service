@@ -122,4 +122,24 @@ class ResourceApplicationServiceTest {
             service.deleteResource(resourceId)
         }
     }
+
+    @Test
+    fun `batchSync should call external API concurrently and save all entities to repository`() =
+        kotlinx.coroutines.test.runTest {
+            val command =
+                com.example.demo.application.port.`in`
+                    .BatchSyncCommand(count = 5, referencePrefix = "item", parallelism = 2)
+            io.mockk.coEvery { externalClientPort.fetchEnrichmentDataAsync(any()) } answers {
+                "source=external-api;ref=${firstArg<String>()};status=OK"
+            }
+            every { repositoryPort.saveAll(any()) } answers { firstArg() }
+
+            val result = service.batchSync(command)
+
+            assertEquals(5, result.totalRequested)
+            assertEquals(5, result.totalPersisted)
+            assertEquals(5, result.resources.size)
+            io.mockk.coVerify(exactly = 5) { externalClientPort.fetchEnrichmentDataAsync(any()) }
+            verify(exactly = 1) { repositoryPort.saveAll(match { it.size == 5 }) }
+        }
 }

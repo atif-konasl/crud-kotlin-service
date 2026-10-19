@@ -1,5 +1,6 @@
 package com.example.demo.infrastructure.config
 
+import com.example.demo.application.port.`in`.BatchSyncResourcesUseCase
 import com.example.demo.application.port.`in`.CreateResourceUseCase
 import com.example.demo.application.port.`in`.DeleteResourceUseCase
 import com.example.demo.application.port.`in`.GetResourceUseCase
@@ -33,6 +34,9 @@ class SecurityConfigTest {
 
     @MockkBean
     private lateinit var deleteResourceUseCase: DeleteResourceUseCase
+
+    @MockkBean
+    private lateinit var batchSyncResourcesUseCase: BatchSyncResourcesUseCase
 
     @Test
     fun `protected API endpoints should reject unauthenticated requests with 401 Unauthorized`() {

@@ -77,4 +77,18 @@ class ResourcePersistenceAdapterTest {
         val deleted = adapter.deleteById(ResourceId(UUID.randomUUID()))
         assertFalse(deleted)
     }
+
+    @Test
+    fun `saveAll should persist multiple entities in batch`() {
+        val resources =
+            (1..5).map {
+                Resource(name = "Batch Res $it", description = "Desc $it")
+            }
+
+        val saved = adapter.saveAll(resources)
+        assertEquals(5, saved.size)
+
+        val all = adapter.findAll()
+        assertTrue(all.size >= 5)
+    }
 }

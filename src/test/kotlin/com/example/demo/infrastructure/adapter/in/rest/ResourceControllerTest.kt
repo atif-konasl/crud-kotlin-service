@@ -1,5 +1,7 @@
 package com.example.demo.infrastructure.adapter.`in`.rest
 
+import com.example.demo.application.port.`in`.BatchSyncResourcesUseCase
+import com.example.demo.application.port.`in`.BatchSyncResult
 import com.example.demo.application.port.`in`.CreateResourceUseCase
 import com.example.demo.application.port.`in`.DeleteResourceUseCase
 import com.example.demo.application.port.`in`.GetResourceUseCase
@@ -11,6 +13,7 @@ import com.example.demo.infrastructure.adapter.`in`.rest.dto.CreateResourceReque
 import com.example.demo.infrastructure.adapter.`in`.rest.dto.UpdateResourceRequest
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.ninjasquad.springmockk.MockkBean
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.verify
@@ -20,11 +23,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.request
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.util.UUID
 
@@ -48,6 +53,9 @@ class ResourceControllerTest {
 
     @MockkBean
     private lateinit var deleteResourceUseCase: DeleteResourceUseCase
+
+    @MockkBean
+    private lateinit var batchSyncResourcesUseCase: BatchSyncResourcesUseCase
 
     @Test
     fun `POST should create resource and return 201 Created`() {
@@ -153,5 +161,37 @@ class ResourceControllerTest {
             .andExpect(status().isNoContent)
 
         verify(exactly = 1) { deleteResourceUseCase.deleteResource(ResourceId(id)) }
+    }
+
+    @Test
+    fun `POST batch-sync should trigger batch sync and return 201 Created`() {
+        val result =
+            BatchSyncResult(
+                totalRequested = 2,
+                totalPersisted = 2,
+                durationMs = 120,
+                resources =
+                    listOf(
+                        Resource(name = "Resource 1", description = "Desc 1"),
+                        Resource(name = "Resource 2", description = "Desc 2"),
+                    ),
+            )
+        coEvery { batchSyncResourcesUseCase.batchSync(any()) } returns result
+
+        val mvcResult =
+            mockMvc
+                .perform(
+                    post("/api/v1/resources/batch-sync")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""{"count": 2}"""),
+                ).andExpect(request().asyncStarted())
+                .andReturn()
+
+        mockMvc
+            .perform(asyncDispatch(mvcResult))
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.totalRequested").value(2))
+            .andExpect(jsonPath("$.totalPersisted").value(2))
+            .andExpect(jsonPath("$.items.length()").value(2))
     }
 }
