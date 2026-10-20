@@ -15,11 +15,14 @@ import com.example.demo.domain.exception.ResourceNotFoundException
 import com.example.demo.domain.model.Resource
 import com.example.demo.domain.model.ResourceId
 import com.example.demo.domain.model.ResourceStatus
+import com.example.demo.infrastructure.config.asContextElement
+import io.micrometer.tracing.Tracer
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
@@ -30,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional
 class ResourceApplicationService(
     private val repositoryPort: ResourceRepositoryPort,
     private val externalClientPort: ExternalClientPort,
+    private val tracer: Tracer = Tracer.NOOP,
 ) : CreateResourceUseCase,
     GetResourceUseCase,
     UpdateResourceUseCase,
@@ -105,7 +109,7 @@ class ResourceApplicationService(
 
             val deferredResources =
                 targetIds.map { refId ->
-                    async(Dispatchers.IO + CoroutineName("sync-$refId")) {
+                    async(Dispatchers.IO + MDCContext() + tracer.asContextElement() + CoroutineName("sync-$refId")) {
                         semaphore.withPermit {
                             try {
                                 val enrichment = externalClientPort.fetchEnrichmentDataAsync(refId)
