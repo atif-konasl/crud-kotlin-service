@@ -351,6 +351,7 @@ In [`ResourceApplicationService.kt`](file:///src/main/kotlin/com/example/demo/ap
 ## 7. Sub-Guides in this Directory
 
 For deeper technical implementation details, read the companion guides in this directory:
+- [short-lived-transactions-and-transaction-template.md](file:///repo-wiki/springboot/datasource/short-lived-transactions-and-transaction-template.md): Deep dive into `TransactionTemplate` vs `@Transactional`, HikariCP starvation prevention, Spring AOP self-invocation trap, and short-lived batch persistence.
 - [hikari-connection-pool-deep-dive.md](file:///repo-wiki/springboot/datasource/hikari-connection-pool-deep-dive.md): `ConcurrentBag` internals, Javassist bytecode proxies, and pool state transitions.
 - [connection-timeouts-and-leak-detection.md](file:///repo-wiki/springboot/datasource/connection-timeouts-and-leak-detection.md): Detailed mechanics of `max-lifetime`, `keepalive-time`, and how to debug connection leaks.
 - [postgresql-jdbc-driver-and-tuning.md](file:///repo-wiki/springboot/datasource/postgresql-jdbc-driver-and-tuning.md): PostgreSQL JDBC URL parameters, binary transfer, statement caching, and batch insert optimizations.
