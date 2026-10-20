@@ -4,18 +4,21 @@ import com.example.demo.application.port.out.ResourceRepositoryPort
 import com.example.demo.domain.model.Resource
 import com.example.demo.domain.model.ResourceId
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class ResourcePersistenceAdapter(
     private val springDataRepository: SpringDataResourceRepository,
     private val mapper: ResourcePersistenceMapper,
 ) : ResourceRepositoryPort {
+    @Transactional
     override fun save(resource: Resource): Resource {
         val entity = mapper.toJpaEntity(resource)
         val saved = springDataRepository.save(entity)
         return mapper.toDomain(saved)
     }
 
+    @Transactional
     override fun saveAll(resources: List<Resource>): List<Resource> {
         val entities = resources.map { mapper.toJpaEntity(it) }
         val saved = springDataRepository.saveAll(entities)

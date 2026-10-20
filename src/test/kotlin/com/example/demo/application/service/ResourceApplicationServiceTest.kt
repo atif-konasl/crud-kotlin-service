@@ -142,4 +142,32 @@ class ResourceApplicationServiceTest {
             io.mockk.coVerify(exactly = 5) { externalClientPort.fetchEnrichmentDataAsync(any()) }
             verify(exactly = 1) { repositoryPort.saveAll(match { it.size == 5 }) }
         }
+
+    @Test
+    fun `batchSync should execute batch save inside transactionTemplate when provided`() =
+        kotlinx.coroutines.test.runTest {
+            val mockTransactionTemplate: org.springframework.transaction.support.TransactionTemplate = mockk()
+            val serviceWithTx =
+                ResourceApplicationService(
+                    repositoryPort = repositoryPort,
+                    externalClientPort = externalClientPort,
+                    transactionTemplate = mockTransactionTemplate,
+                )
+            val command =
+                com.example.demo.application.port.`in`
+                    .BatchSyncCommand(count = 3, referencePrefix = "item", parallelism = 2)
+
+            io.mockk.coEvery { externalClientPort.fetchEnrichmentDataAsync(any()) } returns "status=OK"
+            every { repositoryPort.saveAll(any()) } answers { firstArg() }
+            every { mockTransactionTemplate.execute<List<Resource>>(any()) } answers {
+                val action = firstArg<org.springframework.transaction.support.TransactionCallback<List<Resource>>>()
+                action.doInTransaction(mockk())
+            }
+
+            val result = serviceWithTx.batchSync(command)
+
+            assertEquals(3, result.totalPersisted)
+            verify(exactly = 1) { mockTransactionTemplate.execute<List<Resource>>(any()) }
+            verify(exactly = 1) { repositoryPort.saveAll(match { it.size == 3 }) }
+        }
 }

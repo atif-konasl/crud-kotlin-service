@@ -28,12 +28,14 @@ import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Service
 class ResourceApplicationService(
     private val repositoryPort: ResourceRepositoryPort,
     private val externalClientPort: ExternalClientPort,
     private val tracer: Tracer = Tracer.NOOP,
+    private val transactionTemplate: TransactionTemplate? = null,
 ) : CreateResourceUseCase,
     GetResourceUseCase,
     UpdateResourceUseCase,
@@ -140,7 +142,13 @@ class ResourceApplicationService(
                 Thread.currentThread().name,
                 resourcesToSave.size,
             )
-            val savedResources = repositoryPort.saveAll(resourcesToSave)
+            // Short-lived transaction: Connection acquired ONLY for the quick batch save (5-15ms), NEVER during network calls
+            val savedResources =
+                if (transactionTemplate != null) {
+                    transactionTemplate.execute { repositoryPort.saveAll(resourcesToSave) } ?: emptyList()
+                } else {
+                    repositoryPort.saveAll(resourcesToSave)
+                }
 
             val durationMs = System.currentTimeMillis() - startTime
             logger.info("Batch sync finished in {}ms. Saved {} entities.", durationMs, savedResources.size)
